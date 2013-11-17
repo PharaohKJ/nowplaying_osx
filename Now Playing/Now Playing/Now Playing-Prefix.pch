@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'Now Playing' target in the 'Now Playing' project
+//
+
+#ifdef __OBJC__
+    #import <Cocoa/Cocoa.h>
+#endif
