@@ -3,13 +3,13 @@
 //  Now Playing
 //
 //  Created by numata on 2013/05/09.
-//  Copyright (c) 2013年 Sazameki and Satoshi Numata, Ph.D. All rights reserved.
+//  Copyright (c) 2013 Sazameki and Satoshi Numata, Ph.D. All rights reserved.
 //
 
 #import <Cocoa/Cocoa.h>
 
 
-@interface NPAppDelegate : NSObject <NSApplicationDelegate, NSSharingServiceDelegate>
+@interface NPAppDelegate : NSObject <NSApplicationDelegate, NSSharingServiceDelegate, NSWindowDelegate>
 
 + (NPAppDelegate *)sharedInstance;
 
@@ -20,6 +20,8 @@
 - (IBAction)makeTweet:(id)sender;
 
 - (void)updateImageView;
+
+- (void)changeRatingOfCurrentTrack:(int)rating;
 
 @end
 

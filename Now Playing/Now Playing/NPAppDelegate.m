@@ -3,13 +3,15 @@
 //  Now Playing
 //
 //  Created by numata on 2013/05/09.
-//  Copyright (c) 2013年 Sazameki and Satoshi Numata, Ph.D. All rights reserved.
+//  Copyright (c) 2013 Sazameki and Satoshi Numata, Ph.D. All rights reserved.
 //
 
 #import "NPAppDelegate.h"
 #import <QuartzCore/QuartzCore.h>
 #import <MediaLibrary/MediaLibrary.h>
 #import "NSWindow+AccessoryView.h"
+#import "NPLineView.h"
+#import "NPRatingView.h"
 
 
 @interface NPAppDelegate ()
@@ -17,6 +19,9 @@
 @property (weak) IBOutlet NSTextField *nameField;
 @property (weak) IBOutlet NSView *mainView;
 @property (weak) IBOutlet NSTextField *artistField;
+@property (weak) IBOutlet NPLineView *lineView;
+@property (weak) IBOutlet NPRatingView *ratingView;
+@property (weak) IBOutlet NSButton *playButton;
 @end
 
 
@@ -28,10 +33,14 @@ static NPAppDelegate *sInstance = nil;
     
     NSAppleScript *songInfoScript;
     NSAppleScript *albumArtworkScript;
+    NSAppleScript *prevTrackScript;
+    NSAppleScript *nextTrackScript;
+    NSAppleScript *isPlayingScript;
+    NSAppleScript *togglePlayScript;
+    NSAppleScript *getCurrentPlaylistScript;
     
     NSImage *smallImage;
     NSImage *bigImage;
-    NSImage *currentImage;
     
     CALayer *imageLayer;
 }
@@ -61,10 +70,6 @@ static NPAppDelegate *sInstance = nil;
 {
     sInstance = self;
     
-    self.mainView.wantsLayer = YES;
-    CALayer *viewLayer = self.mainView.layer;
-    viewLayer.backgroundColor = [NSColor whiteColor].CGColor;
-    
     self.albumArtworkView.wantsLayer = YES;
     CGSize imageViewSize = self.albumArtworkView.frame.size;
     imageLayer = [CALayer layer];
@@ -86,6 +91,11 @@ static NPAppDelegate *sInstance = nil;
     // スクリプトの用意
     songInfoScript = [self loadScriptWithName:@"get_song_info.scpt"];
     albumArtworkScript = [self loadScriptWithName:@"get_album_artwork.scpt"];
+    prevTrackScript = [self loadScriptWithName:@"goto_prev_song.scpt"];
+    nextTrackScript = [self loadScriptWithName:@"goto_next_song.scpt"];
+    isPlayingScript = [self loadScriptWithName:@"is_playing.scpt"];
+    togglePlayScript = [self loadScriptWithName:@"toggle_play.scpt"];
+    getCurrentPlaylistScript = [self loadScriptWithName:@"get_current_playlist.scpt"];
 
     // 再生中のトラックの変更通知受け取り
     NSDistributedNotificationCenter *dnc = [NSDistributedNotificationCenter defaultCenter];
@@ -139,7 +149,8 @@ static NPAppDelegate *sInstance = nil;
 
 - (void)changeTextFieldString:(NSTextField *)textField withString:(NSString *)string duration:(NSTimeInterval)duration
 {
-    [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
+    textField.stringValue = string;
+    /*[NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
         [context setDuration:duration/2];
         [context setTimingFunction:[CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut]];
         [textField.animator setAlphaValue:0.0];
@@ -150,11 +161,19 @@ static NPAppDelegate *sInstance = nil;
             [context setTimingFunction:[CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseIn]];
             [textField.animator setAlphaValue:1.0];
         } completionHandler: ^{}];
-    }];
+    }];*/
 }
 
 - (IBAction)refreshTrackInfo:(id)sender
 {
+    if ([self isPlaying]) {
+        [self.playButton setImage:[NSImage imageNamed:@"pause_button"]];
+        [self.playButton setAlternateImage:[NSImage imageNamed:@"pause_button_pressed"]];
+    } else {
+        [self.playButton setImage:[NSImage imageNamed:@"play_button"]];
+        [self.playButton setAlternateImage:[NSImage imageNamed:@"play_button_pressed"]];
+    }
+
     NSDictionary *errorInfo = nil;
     NSAppleEventDescriptor *desc = [songInfoScript executeAndReturnError:&errorInfo];
     NSArray *components = [desc.stringValue componentsSeparatedByString:@"/***/"];
@@ -164,17 +183,15 @@ static NPAppDelegate *sInstance = nil;
         NSString *album = components[2];
         int rating = [components[3] intValue] / 20;
 
-        NSString *star = @"";
-        for (int i = 0; i < rating; i++) {
-            star = [star stringByAppendingString:@"★"];
-        }
-        
+        self.ratingView.rating = rating;
+        [self.ratingView setNeedsDisplay:YES];
+
         [self changeTextFieldString:self.nameField withString:name duration:0.7];
         [self changeTextFieldString:self.artistField withString:[NSString stringWithFormat:@"%@ - %@", artist, album] duration:0.7];
 
         //lastTweetStr = [NSString stringWithFormat:@"Now Playing: %@「%@」（%@）", artist, name, album];
         //lastTweetStr = [NSString stringWithFormat:@"Now Playing: %@ 📎%@ - %@ ", name, artist, album];
-        lastTweetStr = [NSString stringWithFormat:@"Now Playing: %@ « %@ - %@ »", name, artist, album];
+        lastTweetStr = [NSString stringWithFormat:@"Now Playing: %@ - %@ - %@", name, artist, album];
     }
     
     desc = [albumArtworkScript executeAndReturnError:&errorInfo];
@@ -186,6 +203,23 @@ static NPAppDelegate *sInstance = nil;
         smallImage = [NSImage imageNamed:@"noartwork_small"];
     }
     [self updateImageView];
+}
+
+- (BOOL)isPlaying
+{
+    NSDictionary *errorInfo = nil;
+    NSAppleEventDescriptor *desc = [isPlayingScript executeAndReturnError:&errorInfo];
+    if ([desc.stringValue isEqualToString:@"playing"]) {
+        return YES;
+    }
+    return NO;
+}
+
+- (NSString *)currentPlaylist
+{
+    NSDictionary *errorInfo = nil;
+    NSAppleEventDescriptor *desc = [getCurrentPlaylistScript executeAndReturnError:&errorInfo];
+    return desc.stringValue;
 }
 
 - (IBAction)refreshAndCopy:(id)sender
@@ -234,4 +268,99 @@ static NPAppDelegate *sInstance = nil;
     CGImageRelease(cgImage);
 }
 
+- (IBAction)backToPreviousSong:(id)sender
+{
+    NSDictionary *errorInfo = nil;
+    [prevTrackScript executeAndReturnError:&errorInfo];
+}
+
+- (IBAction)gotoNextSong:(id)sender
+{
+    NSDictionary *errorInfo = nil;
+    [nextTrackScript executeAndReturnError:&errorInfo];
+}
+
+- (IBAction)togglePlay:(id)sender
+{
+    [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+        NSDictionary *errorInfo = nil;
+        [togglePlayScript executeAndReturnError:&errorInfo];
+    }];
+}
+
+- (void)windowDidResize:(NSNotification *)notification
+{
+    NSRect windowFrame = self.window.frame;
+    NSRect lineViewFrame = self.lineView.frame;
+    lineViewFrame.size.width = windowFrame.size.width - 5 * 2;
+    self.lineView.frame = lineViewFrame;
+}
+
+- (void)changeRatingOfCurrentTrack:(int)rating
+{
+    NSLog(@"changeRatingOfCurrentTrack: %d", rating);
+
+    NSString *currentPlaylistName = self.currentPlaylist;
+    BOOL isPlaying = self.isPlaying;
+    
+    NSString *scriptName = @"change_rating.scpt";
+
+    NSError *error = nil;
+    NSURL *fileURL = [[NSBundle mainBundle] URLForResource:scriptName.stringByDeletingPathExtension
+                                             withExtension:scriptName.pathExtension];
+    NSString *source = [NSString stringWithContentsOfURL:fileURL
+                                                encoding:NSUTF8StringEncoding
+                                                   error:&error];
+    
+    source = [source stringByReplacingOccurrencesOfString:@"__RATING__" withString:@(rating*20).stringValue];
+    
+    NSAppleScript *script = [[NSAppleScript alloc] initWithSource:source];
+
+    NSDictionary *errorDict = nil;
+    if (![script compileAndReturnError:&errorDict]) {
+        NSLog(@"Failed to compile AppleScript: %@", scriptName);
+    } else {
+        NSDictionary *errorInfo = nil;
+        [script executeAndReturnError:&errorInfo];
+    }
+    
+    if (isPlaying) {
+        [NSTimer scheduledTimerWithTimeInterval:0.1
+                                         target:self
+                                       selector:@selector(restartPlaying:)
+                                       userInfo:currentPlaylistName
+                                        repeats:NO];
+    }
+}
+
+- (void)restartPlaying:(NSTimer *)timer
+{
+    if (self.isPlaying) {
+        return;
+    }
+    
+    NSString *playlistName = timer.userInfo;
+
+    NSString *scriptName = @"change_playlist.scpt";
+    
+    NSError *error = nil;
+    NSURL *fileURL = [[NSBundle mainBundle] URLForResource:scriptName.stringByDeletingPathExtension
+                                             withExtension:scriptName.pathExtension];
+    NSString *source = [NSString stringWithContentsOfURL:fileURL
+                                                encoding:NSUTF8StringEncoding
+                                                   error:&error];
+    source = [source stringByReplacingOccurrencesOfString:@"__PLAYLIST__" withString:playlistName];
+    
+    NSAppleScript *script = [[NSAppleScript alloc] initWithSource:source];
+    
+    NSDictionary *errorDict = nil;
+    if (![script compileAndReturnError:&errorDict]) {
+        NSLog(@"Failed to compile AppleScript: %@", scriptName);
+    } else {
+        NSDictionary *errorInfo = nil;
+        [script executeAndReturnError:&errorInfo];
+    }
+}
+
 @end
+
