@@ -99,7 +99,7 @@
             thePos = 1.0;
         }
         tempTime = thePos * self.trackTime;
-        [[NPAppDelegate sharedInstance] setCurrentTime:tempTime];
+        [[NPAppDelegate sharedInstance] setPlayerPosition:tempTime];
         self.currentTime = tempTime;
     }
     [self setNeedsDisplay:YES];

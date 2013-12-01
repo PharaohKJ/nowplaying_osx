@@ -700,7 +700,7 @@
 			<object class="NSWindowTemplate" id="734716422">
 				<int key="NSWindowStyleMask">7</int>
 				<int key="NSWindowBacking">2</int>
-				<string key="NSWindowRect">{{283, 305}, {480, 230}}</string>
+				<string key="NSWindowRect">{{283, 305}, {480, 247}}</string>
 				<int key="NSWTFlags">1685586944</int>
 				<string key="NSWindowTitle">Preferences</string>
 				<string key="NSWindowClass">NSWindow</string>
@@ -713,7 +713,7 @@
 						<object class="NSTextField" id="558582087">
 							<reference key="NSNextResponder" ref="971988398"/>
 							<int key="NSvFlags">268</int>
-							<string key="NSFrame">{{17, 193}, {95, 17}}</string>
+							<string key="NSFrame">{{17, 210}, {95, 17}}</string>
 							<reference key="NSSuperview" ref="971988398"/>
 							<reference key="NSWindow"/>
 							<reference key="NSNextKeyView" ref="762960151"/>
@@ -769,7 +769,7 @@
 											<string key="NSFrameSize">{438, 99}</string>
 											<reference key="NSSuperview" ref="628700255"/>
 											<reference key="NSWindow"/>
-											<reference key="NSNextKeyView" ref="655131936"/>
+											<reference key="NSNextKeyView" ref="125972380"/>
 											<string key="NSReuseIdentifierKey">_NS:13</string>
 											<object class="NSTextContainer" key="NSTextContainer" id="361360547">
 												<object class="NSLayoutManager" key="NSLayoutManager">
@@ -790,7 +790,7 @@
 												<int key="NSTCFlags">1</int>
 											</object>
 											<object class="NSTextViewSharedData" key="NSSharedData">
-												<int key="NSFlags">12035</int>
+												<int key="NSFlags">67120899</int>
 												<int key="NSTextCheckingTypes">0</int>
 												<nil key="NSMarkedAttributes"/>
 												<object class="NSColor" key="NSBackgroundColor" id="908237599">
@@ -824,12 +824,7 @@
 													<integer value="1" key="NSUnderline"/>
 												</dictionary>
 												<nil key="NSDefaultParagraphStyle"/>
-												<object class="NSTextFinder" key="NSTextFinder">
-													<reference key="NSTextFinderClient" ref="942821831"/>
-													<int key="NSTextFinderStyle">1</int>
-													<bool key="NSIncrementalSearchingEnabled">NO</bool>
-													<bool key="NSIncrementalSearchingShouldDimContentView">YES</bool>
-												</object>
+												<nil key="NSTextFinder"/>
 												<int key="NSPreferredTextFinderStyle">1</int>
 											</object>
 											<int key="NSTVFlags">6</int>
@@ -895,10 +890,10 @@
 									<double key="NSPercent">0.94565218687057495</double>
 								</object>
 							</array>
-							<string key="NSFrame">{{20, 84}, {440, 101}}</string>
+							<string key="NSFrame">{{20, 101}, {440, 101}}</string>
 							<reference key="NSSuperview" ref="971988398"/>
 							<reference key="NSWindow"/>
-							<reference key="NSNextKeyView" ref="125972380"/>
+							<reference key="NSNextKeyView" ref="628700255"/>
 							<string key="NSReuseIdentifierKey">_NS:9</string>
 							<int key="NSsFlags">133138</int>
 							<reference key="NSVScroller" ref="655131936"/>
@@ -919,7 +914,7 @@
 										<object class="NSTextField" id="258349174">
 											<reference key="NSNextResponder" ref="533604012"/>
 											<int key="NSvFlags">268</int>
-											<string key="NSFrame">{{15, 14}, {414, 34}}</string>
+											<string key="NSFrame">{{15, 14}, {414, 51}}</string>
 											<reference key="NSSuperview" ref="533604012"/>
 											<reference key="NSWindow"/>
 											<string key="NSReuseIdentifierKey">_NS:9</string>
@@ -928,7 +923,7 @@
 											<object class="NSTextFieldCell" key="NSCell" id="640212769">
 												<int key="NSCellFlags">67108864</int>
 												<int key="NSCellFlags2">272891904</int>
-												<string key="NSContents">@album@ = Album Name, @artist@ = Artist Name, @count@ = Playing Count, @name@ = Song Name, @rating@ = Rating Stars</string>
+												<string key="NSContents">@album@ = Album Name, @artist@ = Artist Name, @count@ = Playing Count, @name@ = Song Name, @rating@ = Rating Number, @stars@ = Rating Stars</string>
 												<reference key="NSSupport" ref="370229164"/>
 												<string key="NSCellIdentifier">_NS:9</string>
 												<reference key="NSControlView" ref="258349174"/>
@@ -937,17 +932,17 @@
 											</object>
 											<bool key="NSAllowsLogicalLayoutDirection">NO</bool>
 											<bool key="NSControlAutosetMaxLayoutWidth">YES</bool>
-											<double key="NSPreferredMaxLayoutWidth">90</double>
+											<double key="NSPreferredMaxLayoutWidth">408</double>
 										</object>
 									</array>
-									<string key="NSFrame">{{1, 1}, {444, 60}}</string>
+									<string key="NSFrame">{{1, 1}, {444, 77}}</string>
 									<reference key="NSSuperview" ref="298448087"/>
 									<reference key="NSWindow"/>
 									<reference key="NSNextKeyView" ref="258349174"/>
 									<string key="NSReuseIdentifierKey">_NS:11</string>
 								</object>
 							</array>
-							<string key="NSFrame">{{17, 16}, {446, 62}}</string>
+							<string key="NSFrame">{{17, 16}, {446, 79}}</string>
 							<reference key="NSSuperview" ref="971988398"/>
 							<reference key="NSWindow"/>
 							<reference key="NSNextKeyView" ref="533604012"/>
@@ -980,7 +975,7 @@
 							<bool key="NSTransparent">NO</bool>
 						</object>
 					</array>
-					<string key="NSFrameSize">{480, 230}</string>
+					<string key="NSFrameSize">{480, 247}</string>
 					<reference key="NSSuperview"/>
 					<reference key="NSWindow"/>
 					<reference key="NSNextKeyView" ref="558582087"/>

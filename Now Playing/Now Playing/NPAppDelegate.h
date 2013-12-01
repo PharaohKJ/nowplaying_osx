@@ -18,7 +18,7 @@
 - (void)updateImageView;
 
 - (void)changeRatingOfCurrentTrack:(int)rating;
-- (void)setCurrentTime:(NSTimeInterval)time;
+- (void)setPlayerPosition:(NSTimeInterval)position;
 
 @end
 
