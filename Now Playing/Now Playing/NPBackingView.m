@@ -10,7 +10,9 @@
 #import "NPAppDelegate.h"
 
 
-@implementation NPBackingView
+@implementation NPBackingView {
+    NSColor *color;
+}
 
 - (void)viewDidChangeBackingProperties
 {
@@ -19,7 +21,10 @@
 
 - (void)drawRect:(NSRect)dirtyRect
 {
-    [[NSColor whiteColor] set];
+    if (!color) {
+        color = [NSColor colorWithCalibratedWhite:0.96 alpha:1.0];
+    }
+    [color set];
     NSRectFill(dirtyRect);
 }
 

@@ -10,8 +10,8 @@
 #import <QuartzCore/QuartzCore.h>
 #import <MediaLibrary/MediaLibrary.h>
 #import "NSWindow+AccessoryView.h"
-#import "NPLineView.h"
 #import "NPRatingView.h"
+#import "NPPlayPositionView.h"
 
 
 @interface NPAppDelegate ()
@@ -19,9 +19,11 @@
 @property (weak) IBOutlet NSTextField *nameField;
 @property (weak) IBOutlet NSView *mainView;
 @property (weak) IBOutlet NSTextField *artistField;
-@property (weak) IBOutlet NPLineView *lineView;
 @property (weak) IBOutlet NPRatingView *ratingView;
 @property (weak) IBOutlet NSButton *playButton;
+@property (weak) IBOutlet NSTextField *currentTimeLabel;
+@property (weak) IBOutlet NSTextField *restTimeLabel;
+@property (weak) IBOutlet NPPlayPositionView *playPositionView;
 @end
 
 
@@ -38,11 +40,16 @@ static NPAppDelegate *sInstance = nil;
     NSAppleScript *isPlayingScript;
     NSAppleScript *togglePlayScript;
     NSAppleScript *getCurrentPlaylistScript;
+    NSAppleScript *getPlayerPositionScript;
     
     NSImage *smallImage;
     NSImage *bigImage;
     
     CALayer *imageLayer;
+    
+    NSTimeInterval trackTime;
+    
+    NSTimer *playerPositionUpdateTimer;
 }
 
 + (NPAppDelegate *)sharedInstance
@@ -79,14 +86,17 @@ static NPAppDelegate *sInstance = nil;
     
     [self.nameField.cell setLineBreakMode:NSLineBreakByTruncatingTail];
     
+    self.currentTimeLabel.stringValue = @"0:00";
+    self.restTimeLabel.stringValue = @"-0:00";
+    
     // ウィンドウにボタンを追加
-    NSButton *button = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 80, 20)];
+    NSButton *button = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 60, 16)];
     button.buttonType = NSMomentaryLightButton;
-    button.bezelStyle = NSRoundRectBezelStyle;
+    button.bezelStyle = NSRecessedBezelStyle;
     button.title = @"Tweet";
     button.target = self;
     button.action = @selector(makeTweet:);
-    [self.window addViewToTitleBar:button atXPosition:self.mainView.frame.size.width-80-8];
+    [self.window addViewToTitleBar:button atPosition:CGPointMake(self.mainView.frame.size.width-60-8, 3)];
     
     // スクリプトの用意
     songInfoScript = [self loadScriptWithName:@"get_song_info.scpt"];
@@ -96,12 +106,22 @@ static NPAppDelegate *sInstance = nil;
     isPlayingScript = [self loadScriptWithName:@"is_playing.scpt"];
     togglePlayScript = [self loadScriptWithName:@"toggle_play.scpt"];
     getCurrentPlaylistScript = [self loadScriptWithName:@"get_current_playlist.scpt"];
+    getPlayerPositionScript = [self loadScriptWithName:@"get_position.scpt"];
 
     // 再生中のトラックの変更通知受け取り
     NSDistributedNotificationCenter *dnc = [NSDistributedNotificationCenter defaultCenter];
     [dnc addObserver:self selector:@selector(updateTrackInfo:) name:@"com.apple.iTunes.playerInfo" object:nil];
 
     [self refreshTrackInfo:self];
+    
+    // ウィンドウの表示
+    [self.window makeKeyAndOrderFront:self];
+    
+    playerPositionUpdateTimer = [NSTimer scheduledTimerWithTimeInterval:0.5
+                                                                 target:self
+                                                               selector:@selector(playPositionUpdateTimerProc:)
+                                                               userInfo:nil
+                                                                repeats:YES];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification
@@ -147,21 +167,42 @@ static NPAppDelegate *sInstance = nil;
     return newImage;
 }
 
-- (void)changeTextFieldString:(NSTextField *)textField withString:(NSString *)string duration:(NSTimeInterval)duration
+- (void)updatePlayTimeInfoLabels
 {
-    textField.stringValue = string;
-    /*[NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
-        [context setDuration:duration/2];
-        [context setTimingFunction:[CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut]];
-        [textField.animator setAlphaValue:0.0];
-    } completionHandler:^{
-        textField.stringValue = string;
-        [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
-            [context setDuration:duration/2];
-            [context setTimingFunction:[CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseIn]];
-            [textField.animator setAlphaValue:1.0];
-        } completionHandler: ^{}];
-    }];*/
+    NSTimeInterval playerPosition = [self playerPosition];
+    NSTimeInterval restTime = trackTime - playerPosition;
+    
+    self.playPositionView.currentTime = playerPosition;
+    [self.playPositionView setNeedsDisplay:YES];
+
+    int hour = (int)(playerPosition / (60 * 60));
+    playerPosition -= hour * 60 * 60;
+    int min = (int)(playerPosition / 60);
+    playerPosition -= min * 60;
+    int sec = (int)(playerPosition + 0.5);
+    
+    if (hour > 0) {
+        self.currentTimeLabel.stringValue = [NSString stringWithFormat:@"%d:%02d:%02d", hour, min, sec];
+    } else {
+        self.currentTimeLabel.stringValue = [NSString stringWithFormat:@"%d:%02d", min, sec];
+    }
+    
+    hour = (int)(restTime / (60 * 60));
+    restTime -= hour * 60 * 60;
+    min = (int)(restTime / 60);
+    restTime -= min * 60;
+    sec = (int)(restTime + 0.5);
+
+    if (hour > 0) {
+        self.restTimeLabel.stringValue = [NSString stringWithFormat:@"-%d:%02d:%02d", hour, min, sec];
+    } else {
+        self.restTimeLabel.stringValue = [NSString stringWithFormat:@"-%d:%02d", min, sec];
+    }
+}
+
+- (void)playPositionUpdateTimerProc:(id)sender
+{
+    [self updatePlayTimeInfoLabels];
 }
 
 - (IBAction)refreshTrackInfo:(id)sender
@@ -177,20 +218,36 @@ static NPAppDelegate *sInstance = nil;
     NSDictionary *errorInfo = nil;
     NSAppleEventDescriptor *desc = [songInfoScript executeAndReturnError:&errorInfo];
     NSArray *components = [desc.stringValue componentsSeparatedByString:@"/***/"];
-    if (components.count >= 4) {
+    if (components.count >= 5) {
         NSString *name = components[0];
         NSString *artist = components[1];
         NSString *album = components[2];
         int rating = [components[3] intValue] / 20;
+        NSString *time = components[4];
+        NSArray *timeComponents = [time componentsSeparatedByString:@":"];
+        int timeHour = 0;
+        int timeMinute = 0;
+        int timeSec = 0;
+        if (timeComponents.count == 3) {
+            timeHour = [timeComponents[0] intValue];
+            timeMinute = [timeComponents[1] intValue];
+            timeSec = [timeComponents[2] intValue];
+        } else if (timeComponents.count == 2) {
+            timeMinute = [timeComponents[0] doubleValue];
+            timeSec = [timeComponents[1] doubleValue];
+        } else {
+            timeSec = [timeComponents[0] doubleValue];
+        }
+        trackTime = timeSec + timeMinute * 60.0 + timeHour * 60 * 60;
+        self.playPositionView.trackTime = trackTime;
+        [self updatePlayTimeInfoLabels];
 
         self.ratingView.rating = rating;
         [self.ratingView setNeedsDisplay:YES];
 
-        [self changeTextFieldString:self.nameField withString:name duration:0.7];
-        [self changeTextFieldString:self.artistField withString:[NSString stringWithFormat:@"%@ - %@", artist, album] duration:0.7];
+        self.nameField.stringValue = name;
+        self.artistField.stringValue = [NSString stringWithFormat:@"%@ - %@", artist, album];
 
-        //lastTweetStr = [NSString stringWithFormat:@"Now Playing: %@「%@」（%@）", artist, name, album];
-        //lastTweetStr = [NSString stringWithFormat:@"Now Playing: %@ 📎%@ - %@ ", name, artist, album];
         lastTweetStr = [NSString stringWithFormat:@"Now Playing: %@ - %@ - %@", name, artist, album];
     }
     
@@ -220,6 +277,14 @@ static NPAppDelegate *sInstance = nil;
     NSDictionary *errorInfo = nil;
     NSAppleEventDescriptor *desc = [getCurrentPlaylistScript executeAndReturnError:&errorInfo];
     return desc.stringValue;
+}
+
+- (NSTimeInterval)playerPosition
+{
+    NSDictionary *errorInfo = nil;
+    NSAppleEventDescriptor *desc = [getPlayerPositionScript executeAndReturnError:&errorInfo];
+    NSString *posStr = desc.stringValue;
+    return posStr.doubleValue;
 }
 
 - (IBAction)refreshAndCopy:(id)sender
@@ -288,14 +353,6 @@ static NPAppDelegate *sInstance = nil;
     }];
 }
 
-- (void)windowDidResize:(NSNotification *)notification
-{
-    NSRect windowFrame = self.window.frame;
-    NSRect lineViewFrame = self.lineView.frame;
-    lineViewFrame.size.width = windowFrame.size.width - 5 * 2;
-    self.lineView.frame = lineViewFrame;
-}
-
 - (void)changeRatingOfCurrentTrack:(int)rating
 {
     NSLog(@"changeRatingOfCurrentTrack: %d", rating);
@@ -350,6 +407,30 @@ static NPAppDelegate *sInstance = nil;
                                                 encoding:NSUTF8StringEncoding
                                                    error:&error];
     source = [source stringByReplacingOccurrencesOfString:@"__PLAYLIST__" withString:playlistName];
+    
+    NSAppleScript *script = [[NSAppleScript alloc] initWithSource:source];
+    
+    NSDictionary *errorDict = nil;
+    if (![script compileAndReturnError:&errorDict]) {
+        NSLog(@"Failed to compile AppleScript: %@", scriptName);
+    } else {
+        NSDictionary *errorInfo = nil;
+        [script executeAndReturnError:&errorInfo];
+    }
+}
+
+- (void)setCurrentTime:(NSTimeInterval)time
+{
+    NSString *scriptName = @"set_position.scpt";
+
+    NSError *error = nil;
+    NSURL *fileURL = [[NSBundle mainBundle] URLForResource:scriptName.stringByDeletingPathExtension
+                                             withExtension:scriptName.pathExtension];
+    NSString *source = [NSString stringWithContentsOfURL:fileURL
+                                                encoding:NSUTF8StringEncoding
+                                                   error:&error];
+    
+    source = [source stringByReplacingOccurrencesOfString:@"__POSITION__" withString:@(time).stringValue];
     
     NSAppleScript *script = [[NSAppleScript alloc] initWithSource:source];
     

@@ -22,6 +22,7 @@
 - (void)updateImageView;
 
 - (void)changeRatingOfCurrentTrack:(int)rating;
+- (void)setCurrentTime:(NSTimeInterval)time;
 
 @end
 

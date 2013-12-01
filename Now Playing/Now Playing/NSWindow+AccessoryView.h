@@ -11,7 +11,7 @@
 
 @interface NSWindow (AccessoryView)
 
--(void)addViewToTitleBar:(NSView*)viewToAdd atXPosition:(CGFloat)x;
+-(void)addViewToTitleBar:(NSView*)viewToAdd atPosition:(CGPoint)pos;
 -(CGFloat)heightOfTitleBar;
 
 @end

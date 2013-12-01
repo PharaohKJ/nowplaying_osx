@@ -20,6 +20,8 @@ static const float NPRatingStartY = 4.0f;
     NSFont *font;
     BOOL isDragging;
     int oldRating;
+
+    NSColor *bgColor;
 }
 
 - (BOOL)acceptsFirstMouse:(NSEvent *)theEvent
@@ -43,7 +45,10 @@ static const float NPRatingStartY = 4.0f;
     NSRect frame = self.frame;
     frame.origin = NSZeroPoint;
 
-    [[NSColor whiteColor] set];
+    if (!bgColor) {
+        bgColor = [NSColor colorWithCalibratedWhite:0.96 alpha:1.0];
+    }
+    [bgColor set];
     NSRectFill(frame);
 
     NSString *starStr = @"★";
@@ -61,7 +66,7 @@ static const float NPRatingStartY = 4.0f;
     }
     
     drawAttr = @{ NSFontAttributeName:font,
-                  NSForegroundColorAttributeName:[NSColor lightGrayColor] };
+                  NSForegroundColorAttributeName:[NSColor colorWithCalibratedWhite:0.76 alpha:1.0] };
 
     for (; i < 5; i++) {
         [dotStr drawAtPoint:drawPos
