@@ -24,6 +24,9 @@
 @property (weak) IBOutlet NSTextField *currentTimeLabel;
 @property (weak) IBOutlet NSTextField *restTimeLabel;
 @property (weak) IBOutlet NPPlayPositionView *playPositionView;
+@property (unsafe_unretained) IBOutlet NSWindow *preferencesWindow;
+@property (unsafe_unretained) IBOutlet NSTextView *tweetFormatView;
+- (IBAction)showPreferencesPanel:(id)sender;
 @end
 
 
@@ -31,8 +34,6 @@ static NPAppDelegate *sInstance = nil;
 
 
 @implementation NPAppDelegate {
-    NSString *lastTweetStr;
-    
     NSAppleScript *songInfoScript;
     NSAppleScript *albumArtworkScript;
     NSAppleScript *prevTrackScript;
@@ -50,6 +51,14 @@ static NPAppDelegate *sInstance = nil;
     NSTimeInterval trackTime;
     
     NSTimer *playerPositionUpdateTimer;
+    
+    NSString *tweetFormat;
+    
+    NSString *lastArtistName;
+    NSString *lastSongName;
+    NSString *lastAlbumTitle;
+    NSString *lastRatingStars;
+    NSString *lastPlayedCountStr;
 }
 
 + (NPAppDelegate *)sharedInstance
@@ -76,6 +85,14 @@ static NPAppDelegate *sInstance = nil;
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
     sInstance = self;
+    
+    tweetFormat = [[NSUserDefaults standardUserDefaults] stringForKey:@"Tweet Format"];
+    if (!tweetFormat || tweetFormat.length == 0) {
+        [[NSUserDefaults standardUserDefaults] setObject:@"Now Playing: @name@ - @artist@ - @album@" forKey:@"Tweet Format"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }
+    self.tweetFormatView.font = [NSFont systemFontOfSize:13.0];
+    [self.tweetFormatView setString:tweetFormat];
     
     self.albumArtworkView.wantsLayer = YES;
     CGSize imageViewSize = self.albumArtworkView.frame.size;
@@ -116,12 +133,6 @@ static NPAppDelegate *sInstance = nil;
     
     // ウィンドウの表示
     [self.window makeKeyAndOrderFront:self];
-    
-    playerPositionUpdateTimer = [NSTimer scheduledTimerWithTimeInterval:0.5
-                                                                 target:self
-                                                               selector:@selector(playPositionUpdateTimerProc:)
-                                                               userInfo:nil
-                                                                repeats:YES];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification
@@ -130,11 +141,15 @@ static NPAppDelegate *sInstance = nil;
     [dnc removeObserver:self];
 }
 
-- (IBAction)copyTrackInfo:(id)sender
+- (NSString *)makeTweetString
 {
-    NSPasteboard *pboard = [NSPasteboard generalPasteboard];
-    [pboard declareTypes:@[NSPasteboardTypeString] owner:nil];
-    [pboard setString:lastTweetStr forType:NSPasteboardTypeString];
+    NSString *ret = tweetFormat;
+    ret = [ret stringByReplacingOccurrencesOfString:@"@album@" withString:lastAlbumTitle];
+    ret = [ret stringByReplacingOccurrencesOfString:@"@artist@" withString:lastArtistName];
+    ret = [ret stringByReplacingOccurrencesOfString:@"@count@" withString:lastPlayedCountStr];
+    ret = [ret stringByReplacingOccurrencesOfString:@"@name@" withString:lastSongName];
+    ret = [ret stringByReplacingOccurrencesOfString:@"@rating@" withString:lastRatingStars];
+    return ret;
 }
 
 - (NSImage *)resizedImage:(NSImage *)sourceImage
@@ -210,20 +225,34 @@ static NPAppDelegate *sInstance = nil;
     if ([self isPlaying]) {
         [self.playButton setImage:[NSImage imageNamed:@"pause_button"]];
         [self.playButton setAlternateImage:[NSImage imageNamed:@"pause_button_pressed"]];
+        
+        if (!playerPositionUpdateTimer) {
+            playerPositionUpdateTimer = [NSTimer scheduledTimerWithTimeInterval:0.5
+                                                                         target:self
+                                                                       selector:@selector(playPositionUpdateTimerProc:)
+                                                                       userInfo:nil
+                                                                        repeats:YES];
+        }
     } else {
         [self.playButton setImage:[NSImage imageNamed:@"play_button"]];
         [self.playButton setAlternateImage:[NSImage imageNamed:@"play_button_pressed"]];
+        
+        if (playerPositionUpdateTimer) {
+            [playerPositionUpdateTimer invalidate];
+            playerPositionUpdateTimer = nil;
+        }
     }
 
     NSDictionary *errorInfo = nil;
     NSAppleEventDescriptor *desc = [songInfoScript executeAndReturnError:&errorInfo];
     NSArray *components = [desc.stringValue componentsSeparatedByString:@"/***/"];
-    if (components.count >= 5) {
-        NSString *name = components[0];
-        NSString *artist = components[1];
-        NSString *album = components[2];
+    if (components.count >= 6) {
+        lastSongName = components[0];
+        lastArtistName = components[1];
+        lastAlbumTitle = components[2];
         int rating = [components[3] intValue] / 20;
         NSString *time = components[4];
+        lastPlayedCountStr = components[5];
         NSArray *timeComponents = [time componentsSeparatedByString:@":"];
         int timeHour = 0;
         int timeMinute = 0;
@@ -245,10 +274,17 @@ static NPAppDelegate *sInstance = nil;
         self.ratingView.rating = rating;
         [self.ratingView setNeedsDisplay:YES];
 
-        self.nameField.stringValue = name;
-        self.artistField.stringValue = [NSString stringWithFormat:@"%@ - %@", artist, album];
-
-        lastTweetStr = [NSString stringWithFormat:@"Now Playing: %@ - %@ - %@", name, artist, album];
+        self.nameField.stringValue = lastSongName;
+        self.artistField.stringValue = [NSString stringWithFormat:@"%@ - %@", lastArtistName, lastAlbumTitle];
+        
+        if (rating > 0) {
+            lastRatingStars = @"";
+            for (int i = 0; i < rating; i++) {
+                lastRatingStars = [lastRatingStars stringByAppendingString:@"★"];
+            }
+        } else {
+            lastRatingStars = @"No Rating";
+        }
     }
     
     desc = [albumArtworkScript executeAndReturnError:&errorInfo];
@@ -287,18 +323,12 @@ static NPAppDelegate *sInstance = nil;
     return posStr.doubleValue;
 }
 
-- (IBAction)refreshAndCopy:(id)sender
-{
-    [self refreshTrackInfo:self];
-    [self copyTrackInfo:self];
-}
-
 - (IBAction)makeTweet:(id)sender
 {
     NSSharingService *service = [NSSharingService sharingServiceNamed:NSSharingServiceNamePostOnTwitter];
     service.delegate = self;
     
-    [service performWithItems:@[lastTweetStr]];
+    [service performWithItems:@[ [self makeTweetString] ]];
 }
 
 - (void)updateTrackInfo:(id)sender
@@ -441,6 +471,21 @@ static NPAppDelegate *sInstance = nil;
         NSDictionary *errorInfo = nil;
         [script executeAndReturnError:&errorInfo];
     }
+}
+
+- (IBAction)showPreferencesPanel:(id)sender
+{
+    if (!self.preferencesWindow.isVisible) {
+        [self.preferencesWindow center];
+    }
+    [self.preferencesWindow makeKeyAndOrderFront:self];
+}
+
+- (void)textDidChange:(NSNotification *)notification
+{
+    tweetFormat = self.tweetFormatView.string;
+    [[NSUserDefaults standardUserDefaults] setObject:tweetFormat forKey:@"Tweet Format"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
 @end

@@ -9,15 +9,11 @@
 #import <Cocoa/Cocoa.h>
 
 
-@interface NPAppDelegate : NSObject <NSApplicationDelegate, NSSharingServiceDelegate, NSWindowDelegate>
+@interface NPAppDelegate : NSObject <NSApplicationDelegate, NSSharingServiceDelegate, NSWindowDelegate, NSTextDelegate>
 
 + (NPAppDelegate *)sharedInstance;
 
 @property (assign) IBOutlet NSWindow *window;
-- (IBAction)copyTrackInfo:(id)sender;
-- (IBAction)refreshTrackInfo:(id)sender;
-- (IBAction)refreshAndCopy:(id)sender;
-- (IBAction)makeTweet:(id)sender;
 
 - (void)updateImageView;
 
