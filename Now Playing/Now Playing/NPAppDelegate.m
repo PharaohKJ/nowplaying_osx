@@ -99,7 +99,7 @@ static NPAppDelegate *sInstance = nil;
     button.title = @"Tweet";
     button.target = self;
     button.action = @selector(makeTweet:);
-    [self.window addViewToTitleBar:button atPosition:CGPointMake(self.mainView.frame.size.width-60-8, 3)];
+    [self.window addViewToTitleBar:button atPosition:CGPointMake(self.mainView.frame.size.width-60-8, 2.5)];
     
     // iTunes操作用のマネージャの用意
     iTunesManager = [NPITunesManager new];
