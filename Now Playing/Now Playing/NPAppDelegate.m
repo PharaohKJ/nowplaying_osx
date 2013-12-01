@@ -53,6 +53,7 @@ static NPAppDelegate *sInstance = nil;
     int         lastPlayedCount;
 
     NSString    *tweetFormat;
+    BOOL        isChangingForRating;
 }
 
 + (NPAppDelegate *)sharedInstance
@@ -90,6 +91,8 @@ static NPAppDelegate *sInstance = nil;
     
     self.currentTimeLabel.stringValue = @"0:00";
     self.restTimeLabel.stringValue = @"-0:00";
+    
+    isChangingForRating = NO;
     
     // ウィンドウにボタンを追加
     NSButton *button = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 60, 16)];
@@ -204,6 +207,9 @@ static NPAppDelegate *sInstance = nil;
 
 - (IBAction)updateTrackInfo:(id)sender
 {
+    if (isChangingForRating) {
+        return;
+    }
     if (iTunesManager.isPlaying) {
         [self.playButton setImage:[NSImage imageNamed:@"pause_button"]];
         [self.playButton setAlternateImage:[NSImage imageNamed:@"pause_button_pressed"]];
@@ -227,12 +233,20 @@ static NPAppDelegate *sInstance = nil;
 
     // 曲名
     lastSongName = iTunesManager.currentSongName;
-    self.nameField.stringValue = lastSongName;
+    if (!lastSongName) {
+        self.nameField.stringValue = @"-";
+    } else {
+        self.nameField.stringValue = lastSongName;
+    }
 
     // アーティスト名、アルバム名
     lastArtistName = iTunesManager.currentArtistName;
     lastAlbumTitle = iTunesManager.currentAlbumTitle;
-    self.artistField.stringValue = [NSString stringWithFormat:@"%@ - %@", lastArtistName, lastAlbumTitle];
+    if (!lastArtistName && !lastAlbumTitle) {
+        self.artistField.stringValue = @"-";
+    } else {
+        self.artistField.stringValue = [NSString stringWithFormat:@"%@ - %@", lastArtistName, lastAlbumTitle];
+    }
 
     // プレイ回数
     lastPlayedCount = iTunesManager.currentPlayedCount;
@@ -260,6 +274,8 @@ static NPAppDelegate *sInstance = nil;
         smallImage = [NSImage imageNamed:@"noartwork_small"];
     }
     [self updateImageView];
+    
+    isChangingForRating = NO;
 }
 
 
@@ -294,8 +310,9 @@ static NPAppDelegate *sInstance = nil;
     BOOL wasPlaying = iTunesManager.isPlaying;
     
     [iTunesManager setCurrentSongRating:rating];
-    
+
     if (wasPlaying) {
+        isChangingForRating = YES;
         [NSTimer scheduledTimerWithTimeInterval:0.1
                                          target:self
                                        selector:@selector(restartPlaying:)
@@ -312,6 +329,14 @@ static NPAppDelegate *sInstance = nil;
     
     NSString *playlistName = timer.userInfo;
     [iTunesManager setCurrentPlaylistWithName:playlistName];
+    
+    [NSTimer scheduledTimerWithTimeInterval:0.1 target:self selector:@selector(doStartPlay:) userInfo:nil repeats:NO];
+}
+
+- (void)doStartPlay:(id)sender
+{
+    isChangingForRating = NO;
+    [self togglePlay:self];
 }
 
 
