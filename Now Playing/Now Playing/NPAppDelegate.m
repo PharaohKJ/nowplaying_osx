@@ -208,6 +208,7 @@ static NPAppDelegate *sInstance = nil;
 - (IBAction)updateTrackInfo:(id)sender
 {
     if (isChangingForRating) {
+        isChangingForRating = NO;
         return;
     }
     if (iTunesManager.isPlaying) {
